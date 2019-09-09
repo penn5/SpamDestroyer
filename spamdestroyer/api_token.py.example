@@ -1,0 +1,4 @@
+HASH = "https://docs.telethon.dev/en/latest/basic/signing-in.html#signing-in"
+ID = "https://docs.telethon.dev/en/latest/basic/signing-in.html#signing-in"
+TOKEN = "https://core.telegram.org/bots/faq"
+GSB_KEY = "https://github.com/afilipovich/gglsbl#get-google-api-key"
