@@ -228,7 +228,7 @@ class SpamBlocker:
         if stat is None:
             await event.answer("You aren't gbanned! Have fun!")
         elif stat["total_severity"] > 10:
-            await event.answer("Unfortunately, your request requires manual review. Please wait for a response.",
+            await event.answer("Unfortunately, your request requires manual review. Please go to @SpamDestroyers.",
                                alert=True)
             # TODO notify sudo user
         else:
