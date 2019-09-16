@@ -208,9 +208,11 @@ class SpamBlocker:
                 await self.gban_triggered(event, adder_stat)
             await self.ban_user(await event.get_input_chat(), await event.get_input_user())
         else:
+            # TODO this a bug because the bot might be catching up
             self.recent_joins.setdefault(event.chat_id, set()).add(event.user_id)
             await asyncio.sleep(10)
             try:
+                # TODO this a bug because the bot might be catching up
                 self.recent_joins.setdefault(event.chat_id, set()).remove(event.user_id)
             except KeyError:
                 pass  # They left and joined in quick succession
