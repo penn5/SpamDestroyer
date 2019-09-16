@@ -5,6 +5,11 @@
   "text": {
     "forex": 4,
     "bitmex": 4,
+    "promotion": 4,
+    "information": 2,
+    "dex": 2,
+    "announcement(s?)": 3,
+    "info": 2,
     "profit(s?)": 3,
     "guarantee(d?)": 2,
     "exchange": 4,
@@ -25,5 +30,6 @@
       "total_severity": 11,
       "raw_reason": "-2,1,900784219,427,1,+2,900784219,427,5,'9525f48b4a5a7a74e555a52b95adc6951ad21b572594934a39a9cd85696c32f6'+7,900784219,427,4,'binance!'+15,900784219,427,1,"
     }
-  }
+  },
+  "manuals":[]
 }

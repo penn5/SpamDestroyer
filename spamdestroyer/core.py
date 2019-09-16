@@ -11,6 +11,14 @@ from telethon.tl.custom.button import Button
 from telethon.tl.functions.messages import DeleteChatUserRequest
 
 
+def get_chat_id(message):
+    chat = message.to_id
+    attrs = vars(chat)
+    if len(attrs) != 1:
+        return None
+    return next(iter(attrs.values()))
+
+
 def run_sync(executor, func, *args, **kwargs):
     return asyncio.get_event_loop().run_in_executor(executor, functools.partial(func, *args, **kwargs))
 
@@ -173,6 +181,8 @@ class SpamBlocker:
         self.storage = BlacklistStorage("blacklist.json")
         self.gsb = None
 
+        self.recent_joins = {}
+
     async def statcmd(self, event):
         stat = self.storage.get_gban_stat(event.from_id)
         if stat is None:
@@ -197,6 +207,13 @@ class SpamBlocker:
                 adder_stat += AddedGbannedUser(stat["total_severity"], event.user_id, stat["raw_reason"])
                 await self.gban_triggered(event, adder_stat)
             await self.ban_user(await event.get_input_chat(), await event.get_input_user())
+        else:
+            self.recent_joins.setdefault(event.chat_id, set()).add(event.user_id)
+            await asyncio.sleep(10)
+            try:
+                self.recent_joins.setdefault(event.chat_id, set()).remove(event.user_id)
+            except KeyError:
+                pass  # They left and joined in quick succession
 
     async def ban_user(self, chat, user):
         try:
@@ -350,6 +367,7 @@ class BlacklistStorage:
         self._blacklist_urls = self._data["urls"]
         self._blacklist_uids = self._data["uids"]
         self._sudo_users = self._data["sudo"]
+        self.manuals = self._data["manuals"]
 
     def _save(self):
         shutil.move(self._filename, self._filename + ".bak")

@@ -31,9 +31,9 @@ class SpamChecker(SpamBlocker):
     async def check_edit(self, message):
         reason = None
         if message.edit_date:
-            if message.date.timestamp() + 10 < message.edit_date:
+            if message.date.timestamp() + 10 < message.edit_date.timestamp():
                 reason = MessageEditedRecently(2)
-            elif message.date.timestamp() + 120 < message.edit_date:
+            elif message.date.timestamp() + 120 < message.edit_date.timestamp():
                 reason = MessageEditedRecently(0.5)
         return reason
 
