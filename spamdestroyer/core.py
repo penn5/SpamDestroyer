@@ -265,22 +265,22 @@ class SpamBlocker:
         message = await event.get_reply_message()
         if cmd == "img":
             if len(args) != 1:
-                await event.edit("E: bad args")
+                await event.reply("E: bad args")
                 return
             if message.photo is None:
-                await event.edit("E: no photo found")
+                await event.reply("E: no photo found")
                 return
             self.storage.add_image_hash(await self.get_photo_hash(message), int(args[0]))
         elif cmd == "user":
             if len(args) != 1:
-                await event.edit("E: bad args")
+                await event.reply("E: bad args")
                 return
             if args[0] == "fwd":
                 if not message.fwd_from:
-                    await event.edit("E: not a forward")
+                    await event.reply("E: not a forward")
                     return
                 if message.fwd_from.from_id is None:
-                    await event.edit("E: forward privacy is on")
+                    await event.reply("E: forward privacy is on")
                     return
                 uid = message.fwd_from.from_id
             elif args[0] == "user":
@@ -289,9 +289,19 @@ class SpamBlocker:
                 try:
                     uid = int(args[0], 10)
                 except ValueError:
-                    await event.edit("E: unable to parse uid")
+                    await event.reply("E: unable to parse uid")
                     return
             self.storage.add_user_blacklist(uid)
+        elif cmd == "text":
+            if len(args) != 2:
+                await event.reply("E: bad args")
+                return
+            try:
+                sev = int(args[0], 10)
+            except ValueError:
+                await event.reply("E: bad sev")
+                return
+            self.storage.add_text_blacklist(args[1], sev)
 
     async def run_checks(self, message, checks):
         final = None
@@ -362,14 +372,17 @@ class BlacklistStorage:
         self._filename = filename
         with open(filename, "r") as f:
             self._data = json.load(f)
-        end = r"(^|$|\W)"
-        self._blacklist_text = [(re.compile(end + text + end, re.I), severity)
-                                for text, severity in self._data["text"].items()]
+        self._update_text()
         self._blacklist_images = self._data["imgs"]
         self._blacklist_urls = self._data["urls"]
         self._blacklist_uids = self._data["uids"]
         self._sudo_users = self._data["sudo"]
         self.manuals = self._data["manuals"]
+
+    def _update_text(self):
+        end = r"(^|$|\W)"
+        self._blacklist_text = [(re.compile(end + text + end, re.I), severity)
+                                for text, severity in self._data["text"].items()]
 
     def _save(self):
         shutil.move(self._filename, self._filename + ".bak")
@@ -409,3 +422,8 @@ class BlacklistStorage:
 
     def get_gban_stat(self, uid):
         return self._blacklist_uids.get(str(uid), None)
+
+    def add_text_blacklist(self, text, severity):
+        self._data["text"][text] = severity
+        self._update_text()
+        self._save()
