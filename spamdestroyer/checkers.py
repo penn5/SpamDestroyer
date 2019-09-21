@@ -27,6 +27,13 @@ def run_sync(executor, func, *args, **kwargs):
 
 
 class SpamChecker(SpamBlocker):
+    async def __aenter__(self):
+        self.http_session = aiohttp.ClientSession()
+
+    async def __aexit__(self):
+        if self.http_session is not None:
+            await self.http_session.close()
+
     @SpamBlocker.reg(0)
     async def check_edit(self, message):
         reason = None
@@ -117,38 +124,36 @@ class SpamChecker(SpamBlocker):
         if entities is None:
             return
         text = message.message
-        if self.http_session is None or 1:
-            self.http_session = aiohttp.ClientSession()
         ret = None
-        async with self.http_session as session:
-            for entity in entities:
-                if isinstance(entity, telethon.tl.types.MessageEntityUrl):
-                    check_gsb = False
-                    url = text[entity.offset:entity.offset + entity.length]
-                    severity = self.storage.check_url(text[entity.offset:entity.offset + entity.length])
+        for entity in entities:
+            if isinstance(entity, telethon.tl.types.MessageEntityUrl):
+                check_gsb = False
+                url = text[entity.offset:entity.offset + entity.length]
+                severity = self.storage.check_url(text[entity.offset:entity.offset + entity.length])
+                if severity > 0:
+                    continue  # Dealt with in check_entities
+                response = self.http_session.get(url, allow_redirects=False)
+                await response.release()
+                if response.status in [301, 302]:  # It's quite simple and doesn't do JS
+                    url = response.headers.get("Location", None)
+                    if not url:
+                        continue
+                    severity = self.storage.check_url(url)
                     if severity > 0:
-                        continue  # Dealt with in check_entities
-                    async with session.get(url, allow_redirects=False) as response:
-                        if response.status in [301, 302]:  # It's quite simple and doesn't do JS
-                            url = response.headers.get("Location", None)
-                            if not url:
-                                continue
-                            severity = self.storage.check_url(url)
-                            if severity > 0:
-                                self.storage.add_url_blacklist(url, severity + 1)  # Cache it
-                                ret += UrlBlacklisted(severity + 1, text, entity.offset, entity.length)
-                            else:
-                                check_gsb = True
-                        else:
-                            check_gsb = True
-                    if check_gsb:
-                        if self.gsb is None:
-                            self.gsb_executor = concurrent.futures.ThreadPoolExecutor(1)
-                            self.gsb = await run_sync(self.gsb_executor, SafeBrowsingList, api_token.GSB_KEY)
-#                            await run_sync(self.gsb_executor, self.gsb.update_hash_prefix_cache)
-                        threats = await run_sync(self.gsb_executor, self.gsb.lookup_url, url)
-                        if threats:
-                            ret += UrlBlacklisted(4, "GSB", threats)
+                        self.storage.add_url_blacklist(url, severity + 1)  # Cache it
+                        ret += UrlBlacklisted(severity + 1, text, entity.offset, entity.length)
+                    else:
+                        check_gsb = True
+                else:
+                    check_gsb = True
+                if check_gsb:
+                    if self.gsb is None:
+                        self.gsb_executor = concurrent.futures.ThreadPoolExecutor(1)
+                        self.gsb = await run_sync(self.gsb_executor, SafeBrowsingList, api_token.GSB_KEY)
+#                        await run_sync(self.gsb_executor, self.gsb.update_hash_prefix_cache)
+                    threats = await run_sync(self.gsb_executor, self.gsb.lookup_url, url)
+                    if threats:
+                        ret += UrlBlacklisted(4, "GSB", threats)
         return ret
 
     @SpamBlocker.reg(0)
@@ -160,6 +165,17 @@ class SpamChecker(SpamBlocker):
         if stat is not None:
             return ForwardUserBlacklisted(4, fwd_header.from_id, fwd_header.from_name,
                                           fwd_header.channel_id, stat["raw_reason"])
+
+    @SpamBlocker.reg(3)
+    async def check_cas(self, message):
+        uid = message.from_id
+        if not uid:
+            return
+        request = self.http_session.get("https://combot.org/api/cas/check?user_id={}".format(str(uid)))
+        async with request:
+            resp = await request.json()
+        if resp["ok"]:
+            return CombotCasBan(result["offences"], *resp["result"]["messages"])
 
     @SpamBlocker.reg(6)
     async def check_uid(self, message):

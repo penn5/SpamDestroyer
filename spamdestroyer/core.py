@@ -157,6 +157,7 @@ ManuallyBlacklisted = GbanReason.sub("ManuallyBlacklisted", 0xc)
 AddedGbannedUser = GbanReason.sub("AddedGbannedUser", 0xd)
 ProfilePicHashBlacklisted = GbanReason.sub("ProfilePicHashBlacklisted", 0xe)
 NoProfilePic = GbanReason.sub("NoProfilePic", 0xf)
+CombotCasBan = GbanReason.sub("CombotCasBan", 0x10)
 
 
 def eh(s):
@@ -302,6 +303,16 @@ class SpamBlocker:
                 await event.reply("E: bad sev")
                 return
             self.storage.add_text_blacklist(args[1], sev)
+        elif cmd == "url":
+            if len(args) != 2:
+                await event.reply("E: bad args")
+                return
+            try:
+                sev = int(args[0], 10)
+            except ValueError:
+                await event.reply("E: bad sev")
+                return
+            self.storage.add_url_blacklist(args[1], sev)
 
     async def run_checks(self, message, checks):
         final = None
